@@ -1,0 +1,6 @@
+{
+  "watch": ["*.js", "routes", "utils", "middleware"],
+  "ext": "js,json",
+  "ignore": ["data/*", "data/**", "*.test.js"],
+  "delay": 500
+}

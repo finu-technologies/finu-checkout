@@ -1,0 +1,172 @@
+{
+  "4889344c-a999-4666-bbce-f06251f7edb3": {
+    "sessionId": "4889344c-a999-4666-bbce-f06251f7edb3",
+    "orderTotal": 150000,
+    "cardAmount": 100000,
+    "upiAmount": 50000,
+    "customerEmail": "demo@finu.in",
+    "customerPhone": "9000000000",
+    "state": "COMPLETED",
+    "cardOrderId": "order_SguHu3PmoSBJiL",
+    "cardPaymentId": "pay_SguIgVAUxJgKbp",
+    "upiOrderId": "order_SguIyexB1xEiGs",
+    "upiPaymentId": "pay_SguJ5GVehBlBEM",
+    "refundFlagged": false,
+    "logs": [
+      "Session created. Card order order_SguHu3PmoSBJiL initiated.",
+      "Card payment pay_SguIgVAUxJgKbp verified successfully.",
+      "UPI order order_SguIyexB1xEiGs created. Awaiting UPI payment.",
+      "UPI payment pay_SguJ5GVehBlBEM verified. ORDER CONFIRMED. Both legs complete."
+    ],
+    "createdAt": "2026-04-23T10:48:55.158Z",
+    "updatedAt": "2026-04-23T10:50:17.443Z"
+  },
+  "33751467-78eb-47cf-bbf5-a00393b9b5b1": {
+    "sessionId": "33751467-78eb-47cf-bbf5-a00393b9b5b1",
+    "orderTotal": 150000,
+    "cardAmount": 99000,
+    "upiAmount": 51000,
+    "customerEmail": "demo@finu.in",
+    "customerPhone": "9000000000",
+    "state": "COMPLETED",
+    "cardOrderId": "order_SguOPKPy7QPZ3A",
+    "cardPaymentId": "pay_SguOmdoaznU2up",
+    "upiOrderId": "order_SguP9gbvRdSCwu",
+    "upiPaymentId": "pay_SguPHHel5kfJx1",
+    "refundFlagged": false,
+    "logs": [
+      "Session created. Card order order_SguOPKPy7QPZ3A initiated.",
+      "Card payment pay_SguOmdoaznU2up verified successfully.",
+      "UPI order order_SguP9gbvRdSCwu created. Awaiting UPI payment.",
+      "UPI payment pay_SguPHHel5kfJx1 verified. ORDER CONFIRMED. Both legs complete."
+    ],
+    "createdAt": "2026-04-23T10:55:04.603Z",
+    "updatedAt": "2026-04-23T10:56:18.618Z"
+  },
+  "784a07ec-5620-49bb-aae0-69fdcf61d2f3": {
+    "sessionId": "784a07ec-5620-49bb-aae0-69fdcf61d2f3",
+    "orderTotal": 150000,
+    "cardAmount": 99000,
+    "upiAmount": 51000,
+    "customerEmail": "demo@finu.in",
+    "customerPhone": "9000000000",
+    "state": "COMPLETED",
+    "cardOrderId": "order_SguSNhT1URRIEz",
+    "cardPaymentId": "pay_SguSiMdxwdn8yi",
+    "upiOrderId": "order_SguT1wbLodVRov",
+    "upiPaymentId": "pay_SguTA8k5nDoqvi",
+    "refundFlagged": false,
+    "logs": [
+      "Session created. Card order order_SguSNhT1URRIEz initiated.",
+      "Card payment pay_SguSiMdxwdn8yi verified successfully.",
+      "UPI order order_SguT1wbLodVRov created. Awaiting UPI payment.",
+      "UPI payment pay_SguTA8k5nDoqvi verified. ORDER CONFIRMED. Both legs complete."
+    ],
+    "createdAt": "2026-04-23T10:58:50.303Z",
+    "updatedAt": "2026-04-23T10:59:57.846Z"
+  },
+  "70f481f6-bc3d-4b2d-82e8-da1d193711b1": {
+    "sessionId": "70f481f6-bc3d-4b2d-82e8-da1d193711b1",
+    "orderTotal": 150000,
+    "cardAmount": 120000,
+    "upiAmount": 30000,
+    "customerEmail": "demo@finu.in",
+    "customerPhone": "9000000000",
+    "state": "CANCELLED",
+    "cardOrderId": "order_T9JqC7eavvmxH2",
+    "cardPaymentId": null,
+    "upiOrderId": null,
+    "upiPaymentId": null,
+    "refundFlagged": false,
+    "logs": [
+      "Session created. Card order order_T9JqC7eavvmxH2 initiated.",
+      "Session cancelled. No payments to refund."
+    ],
+    "createdAt": "2026-07-04T06:00:46.267Z",
+    "updatedAt": "2026-07-04T06:01:26.647Z"
+  },
+  "c4c2569d-a3eb-464f-81fc-005a7d866d1a": {
+    "sessionId": "c4c2569d-a3eb-464f-81fc-005a7d866d1a",
+    "orderTotal": 150000,
+    "cardAmount": 100500,
+    "upiAmount": 49500,
+    "customerEmail": "demo@finu.in",
+    "customerPhone": "9000000000",
+    "state": "CANCELLED",
+    "cardOrderId": "order_T9JvSx5917DPpN",
+    "cardPaymentId": null,
+    "upiOrderId": null,
+    "upiPaymentId": null,
+    "refundFlagged": false,
+    "logs": [
+      "Session created. Card order order_T9JvSx5917DPpN initiated.",
+      "Session cancelled. No payments to refund."
+    ],
+    "createdAt": "2026-07-04T06:05:45.676Z",
+    "updatedAt": "2026-07-04T06:06:11.941Z"
+  },
+  "7b1aad7a-7620-4304-a22e-8bdee0d50f27": {
+    "sessionId": "7b1aad7a-7620-4304-a22e-8bdee0d50f27",
+    "orderTotal": 500,
+    "cardAmount": 300,
+    "upiAmount": 200,
+    "customerEmail": "demo@finu.in",
+    "customerPhone": "9000000000",
+    "state": "REFUND_FLAGGED",
+    "cardOrderId": "order_T9JyYgBilSkCKO",
+    "cardPaymentId": "pay_T9K0xwZZ9H6Hmt",
+    "upiOrderId": "order_T9K1acwzVAhg0p",
+    "upiPaymentId": null,
+    "refundFlagged": true,
+    "logs": [
+      "Session created. Card order order_T9JyYgBilSkCKO initiated.",
+      "Card payment pay_T9K0xwZZ9H6Hmt verified successfully.",
+      "UPI order order_T9K1acwzVAhg0p created. Awaiting UPI payment.",
+      "Session cancelled post card-success. Card payment pay_T9K0xwZZ9H6Hmt flagged for refund."
+    ],
+    "createdAt": "2026-07-04T06:08:41.296Z",
+    "updatedAt": "2026-07-04T06:12:05.969Z"
+  },
+  "29846436-dc73-4375-8627-fbc175bbf189": {
+    "sessionId": "29846436-dc73-4375-8627-fbc175bbf189",
+    "orderTotal": 500,
+    "cardAmount": 350,
+    "upiAmount": 150,
+    "customerEmail": "demo@finu.in",
+    "customerPhone": "9000000000",
+    "state": "COMPLETED",
+    "cardOrderId": "order_T9KACHVMbw6ZUH",
+    "cardPaymentId": "pay_T9KAhVd8fDwrdY",
+    "upiOrderId": "order_T9KBE71ew98l3u",
+    "upiPaymentId": "pay_T9KBHsl2uft0ru",
+    "refundFlagged": false,
+    "logs": [
+      "Session created. Card order order_T9KACHVMbw6ZUH initiated.",
+      "Card payment pay_T9KAhVd8fDwrdY verified successfully.",
+      "UPI order order_T9KBE71ew98l3u created. Awaiting UPI payment.",
+      "UPI payment pay_T9KBHsl2uft0ru verified. ORDER CONFIRMED. Both legs complete."
+    ],
+    "createdAt": "2026-07-04T06:19:42.376Z",
+    "updatedAt": "2026-07-04T06:21:21.801Z"
+  },
+  "d1476437-af9f-4e0b-aea4-d6c67f32c875": {
+    "sessionId": "d1476437-af9f-4e0b-aea4-d6c67f32c875",
+    "orderTotal": 500,
+    "cardAmount": 335,
+    "upiAmount": 165,
+    "customerEmail": "demo@finu.in",
+    "customerPhone": "9000000000",
+    "state": "CANCELLED",
+    "cardOrderId": "order_T9OMsmdWw6e6xD",
+    "cardPaymentId": null,
+    "upiOrderId": null,
+    "upiPaymentId": null,
+    "refundFlagged": false,
+    "logs": [
+      "Session created. Card order order_T9OMsmdWw6e6xD initiated.",
+      "Session cancelled. No payments to refund."
+    ],
+    "createdAt": "2026-07-04T10:26:29.412Z",
+    "updatedAt": "2026-07-04T10:26:41.716Z"
+  }
+}

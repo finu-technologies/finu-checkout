@@ -1,0 +1,66 @@
+/* FinU Design System — Dark Refined Financial */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --ink:       #0D0D0F;
+  --ink-90:    #1A1A1F;
+  --ink-80:    #26262E;
+  --ink-60:    #3E3E4A;
+  --muted:     #7A7A8C;
+  --smoke:     #B0B0C0;
+  --paper:     #F4F2EE;
+  --gold:      #C9A84C;
+  --gold-lt:   #E2C97A;
+  --gold-dk:   #9A7A30;
+  --emerald:   #2ECC8F;
+  --crimson:   #E05050;
+  --sapphire:  #4A90D9;
+
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body:    'Instrument Sans', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
+  --shadow-gold: 0 0 24px rgba(201,168,76,0.2);
+
+  --transition: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--ink);
+  color: var(--smoke);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--ink-90); }
+::-webkit-scrollbar-thumb { background: var(--ink-60); border-radius: 3px; }
+
+/* ─── Utility ─────────────────────────────────────────────── */
+.mono { font-family: var(--font-mono); }
+.gold  { color: var(--gold); }
+.muted { color: var(--muted); }
