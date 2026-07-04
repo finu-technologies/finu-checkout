@@ -2,31 +2,25 @@
 
 import React from 'react';
 
-export default function OrderSummary({ total }) {
-  // ─── Read merchant details from URL params ────────────────────────────────
-  const params       = new URLSearchParams(window.location.search);
-  const merchantName = params.get('merchant_name')
-                         ? decodeURIComponent(params.get('merchant_name'))
-                         : 'Order Summary';
-  const productName  = params.get('product')
-                         ? decodeURIComponent(params.get('product'))
-                         : 'Order Payment';
-  const orderId      = params.get('order_id') || 'N/A';
-  // ─────────────────────────────────────────────────────────────────────────
+export default function OrderSummary({ total, merchantName, productName, orderId }) {
+  // Accept props directly — passed from App.jsx after demo launch or URL params
+  const displayMerchant = merchantName || 'Order Summary';
+  const displayProduct  = productName  || 'Order Payment';
+  const displayOrderId  = orderId      || 'N/A';
 
   return (
     <div className="order-summary">
       <div className="summary-header">
-        <span className="summary-tag">Order #{orderId}</span>
-        <h2 className="summary-title">{merchantName}</h2>
+        <span className="summary-tag">Order #{displayOrderId}</span>
+        <h2 className="summary-title">{displayMerchant}</h2>
       </div>
 
       <div className="summary-items">
         <div className="summary-item">
           <div className="item-info">
-            <span className="item-name">{productName}</span>
+            <span className="item-name">{displayProduct}</span>
           </div>
-          <span className="item-price">₹{total.toLocaleString('en-IN')}</span>
+          <span className="item-price">₹{total?.toLocaleString('en-IN')}</span>
         </div>
       </div>
 
@@ -34,7 +28,7 @@ export default function OrderSummary({ total }) {
 
       <div className="summary-total">
         <span>Total Payable</span>
-        <span className="total-amount">₹{total.toLocaleString('en-IN')}</span>
+        <span className="total-amount">₹{total?.toLocaleString('en-IN')}</span>
       </div>
 
       <div className="summary-badge">
@@ -69,49 +63,14 @@ export default function OrderSummary({ total }) {
           font-weight: 400;
         }
         .summary-items { display: flex; flex-direction: column; gap: 12px; }
-        .summary-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 12px;
-        }
+        .summary-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
         .item-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
         .item-name { font-size: 13px; color: var(--smoke); line-height: 1.4; }
-        .item-price {
-          font-family: var(--font-mono);
-          font-size: 13px;
-          color: var(--smoke);
-          white-space: nowrap;
-        }
-        .summary-divider {
-          height: 1px;
-          background: var(--ink-60);
-          margin: 20px 0;
-        }
-        .summary-total {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          font-size: 15px;
-          color: var(--smoke);
-        }
-        .total-amount {
-          font-family: var(--font-display);
-          font-size: 26px;
-          color: var(--gold-lt);
-        }
-        .summary-badge {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-top: 20px;
-          padding: 10px 14px;
-          background: rgba(201,168,76,0.06);
-          border: 1px solid rgba(201,168,76,0.15);
-          border-radius: var(--radius-sm);
-          font-size: 11px;
-          color: var(--gold-dk);
-        }
+        .item-price { font-family: var(--font-mono); font-size: 13px; color: var(--smoke); white-space: nowrap; }
+        .summary-divider { height: 1px; background: var(--ink-60); margin: 20px 0; }
+        .summary-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; color: var(--smoke); }
+        .total-amount { font-family: var(--font-display); font-size: 26px; color: var(--gold-lt); }
+        .summary-badge { display: flex; align-items: center; gap: 6px; margin-top: 20px; padding: 10px 14px; background: rgba(201,168,76,0.06); border: 1px solid rgba(201,168,76,0.15); border-radius: var(--radius-sm); font-size: 11px; color: var(--gold-dk); }
       `}</style>
     </div>
   );
