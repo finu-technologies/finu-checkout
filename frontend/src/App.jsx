@@ -36,6 +36,14 @@ function formatMerchantName(name) {
   return (name || '').replace(/\b\w/g, char => char.toUpperCase());
 }
 
+function formatProductName(name) {
+  return name ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+}
+
+function formatDemoAmount(value) {
+  return value ? Number(value).toLocaleString('en-IN') : '';
+}
+
 export default function App() {
   const [demoMerchant, setDemoMerchant] = useState('');
   const [demoProduct,  setDemoProduct]  = useState('');
@@ -60,6 +68,7 @@ export default function App() {
   const { openCheckout } = useRazorpay();
   const upiAmount = orderTotal ? orderTotal - cardAmount : 0;
   const displayMerchantName = formatMerchantName(merchantName);
+  const displayProductName = formatProductName(productName);
 
   // ─── DEMO LAUNCH ─────────────────────────────────────────────────────────
   const handleDemoLaunch = useCallback(() => {
@@ -190,7 +199,6 @@ export default function App() {
             <div className="order-summary">
               <div className="summary-header">
                 <h2 className="summary-title">Configure Order</h2>
-                <p className="summary-sub">Set up your order to experience split payment checkout</p>
               </div>
               <div className="demo-form">
                 <div className="demo-field">
@@ -217,8 +225,8 @@ export default function App() {
                   <label className="demo-label">Order Amount (₹)</label>
                   <div className="demo-input-shell">
                     <span className="demo-input-icon rupee">₹</span>
-                    <input className="demo-input with-icon" type="number" placeholder="e.g. ₹1,20,000" min="100"
-                      value={demoAmount} onChange={e => setDemoAmount(e.target.value)}
+                    <input className="demo-input with-icon" type="text" inputMode="numeric" placeholder="e.g. ₹1,20,000"
+                      value={formatDemoAmount(demoAmount)} onChange={e => setDemoAmount(e.target.value.replace(/\D/g, ''))}
                       onKeyDown={e => e.key === 'Enter' && handleDemoLaunch()} />
                   </div>
                 </div>
@@ -231,7 +239,7 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <OrderSummary total={orderTotal} merchantName={displayMerchantName} productName={productName} orderId={orderId} />
+            <OrderSummary total={orderTotal} merchantName={displayMerchantName} productName={displayProductName} orderId={orderId} />
           )}
         </aside>
 
