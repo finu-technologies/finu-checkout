@@ -32,6 +32,10 @@ function generateOrderId() {
   return 'ORD' + Date.now().toString().slice(-6);
 }
 
+function formatMerchantName(name) {
+  return (name || '').replace(/\b\w/g, char => char.toUpperCase());
+}
+
 export default function App() {
   const [demoMerchant, setDemoMerchant] = useState('');
   const [demoProduct,  setDemoProduct]  = useState('');
@@ -55,6 +59,7 @@ export default function App() {
 
   const { openCheckout } = useRazorpay();
   const upiAmount = orderTotal ? orderTotal - cardAmount : 0;
+  const displayMerchantName = formatMerchantName(merchantName);
 
   // ─── DEMO LAUNCH ─────────────────────────────────────────────────────────
   const handleDemoLaunch = useCallback(() => {
@@ -154,6 +159,15 @@ export default function App() {
     setSessionId(null); setPayState('CREATED'); setError(''); setLoading(false);
   };
 
+  const handleBackToDemo = () => {
+    if (!HAS_PARAMS) {
+      setPhase(PHASE.DEMO);
+      setDemoError('');
+      setError('');
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="app">
       {showAdmin && <AdminDashboard onBack={() => setShowAdmin(false)} />}
@@ -163,8 +177,6 @@ export default function App() {
           <span className="logo-mark">ƒ</span>
           <span className="logo-text">FinU</span>
         </div>
-        <div className="header-badge"><span className="badge-dot" />Live Mode</div>
-        <button className="admin-nav-btn" onClick={() => setShowAdmin(true)}>Sessions ↗</button>
       </header>
 
       <div className="hero">
@@ -185,7 +197,7 @@ export default function App() {
                   <label className="demo-label">Merchant Name</label>
                   <div className="demo-input-shell">
                     <span className="demo-input-icon">▦</span>
-                    <input className="demo-input with-icon" type="text" placeholder="e.g. Hotspot India"
+                    <input className="demo-input with-icon" type="text" placeholder="e.g. Croma, Reliance Digital, Tanishq"
                       value={demoMerchant} onChange={e => setDemoMerchant(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleDemoLaunch()} />
                     {demoMerchant.trim() && <span className="demo-input-check">✓</span>}
@@ -195,7 +207,7 @@ export default function App() {
                   <label className="demo-label">Product / Service</label>
                   <div className="demo-input-shell">
                     <span className="demo-input-icon">⬡</span>
-                    <input className="demo-input with-icon" type="text" placeholder="e.g. Industrial Equipment"
+                    <input className="demo-input with-icon" type="text" placeholder="e.g. Apple iPhone 17 Pro (128 GB)"
                       value={demoProduct} onChange={e => setDemoProduct(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleDemoLaunch()} />
                     {demoProduct.trim() && <span className="demo-input-check">✓</span>}
@@ -205,7 +217,7 @@ export default function App() {
                   <label className="demo-label">Order Amount (₹)</label>
                   <div className="demo-input-shell">
                     <span className="demo-input-icon rupee">₹</span>
-                    <input className="demo-input with-icon" type="number" placeholder="e.g. 25000" min="100"
+                    <input className="demo-input with-icon" type="number" placeholder="e.g. ₹1,20,000" min="100"
                       value={demoAmount} onChange={e => setDemoAmount(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleDemoLaunch()} />
                   </div>
@@ -219,7 +231,7 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <OrderSummary total={orderTotal} merchantName={merchantName} productName={productName} orderId={orderId} />
+            <OrderSummary total={orderTotal} merchantName={displayMerchantName} productName={productName} orderId={orderId} />
           )}
         </aside>
 
@@ -244,7 +256,6 @@ export default function App() {
               </div>
               <div className="demo-showcase-overlay" />
               <div className="demo-showcase-content">
-                <div className="demo-pill"><span className="demo-pill-icon">▷</span>How Split Payment Works</div>
                 <h2 className="showcase-title">One Purchase.<br /><em>Multiple Payment Methods.</em></h2>
                 <div className="journey-row">
                   <div className="journey-step">
@@ -266,10 +277,9 @@ export default function App() {
                   </div>
                 </div>
                 <div className="secure-note">
-                  <span className="secure-note-icon">▣</span>
-                  <span>Both payments are secure, instant, and linked to the same order.<br />No extra steps. No confusion.</span>
+                  <span>Secure, sequential and linked to a single order.</span>
                 </div>
-                <div className="live-example">See the live example in the next step →</div>
+                <div className="live-example">See the live example in the next step</div>
               </div>
             </div>
           )}
@@ -278,7 +288,7 @@ export default function App() {
             <div className="checkout-card">
               <div className="checkout-header">
                 <h2 className="checkout-title">Configure Split</h2>
-                <p className="checkout-sub">Total <strong>₹{orderTotal?.toLocaleString('en-IN')}</strong> — drag the slider or type your card amount.</p>
+                <p className="checkout-sub">Choose Card amount. The remaining will be paid via UPI.</p>
               </div>
               <div className="checkout-body">
                 <SplitSlider total={orderTotal} cardAmount={cardAmount} onChange={setCardAmount} />
@@ -289,15 +299,16 @@ export default function App() {
                   <div className="summary-row total-row"><span className="row-label">Total</span><span className="row-amount total-amount-row">₹{orderTotal?.toLocaleString('en-IN')}</span></div>
                 </div>
                 <div className="flow-info">
-                  <div className="flow-step"><div className="flow-num">1</div><span>Card charges first (₹{cardAmount.toLocaleString('en-IN')})</span></div>
-                  <div className="flow-arrow">→</div>
-                  <div className="flow-step"><div className="flow-num">2</div><span>UPI only on card success (₹{upiAmount.toLocaleString('en-IN')})</span></div>
-                  <div className="flow-arrow">→</div>
-                  <div className="flow-step"><div className="flow-num">3</div><span>Order confirmed on both</span></div>
+                  <div className="flow-step"><div className="flow-num">1</div><span>Card payment authorized</span></div>
+                  <div className="flow-step"><div className="flow-num">2</div><span>Remaining amount paid via UPI</span></div>
+                  <div className="flow-step"><div className="flow-num">3</div><span>Order confirmed</span></div>
                 </div>
                 <button className="proceed-btn" onClick={handleProceed} disabled={loading || cardAmount <= 0 || upiAmount <= 0}>
                   {loading ? (<><div className="btn-spinner" />Processing…</>) : (<>Proceed to Pay — ₹{orderTotal?.toLocaleString('en-IN')}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>)}
                 </button>
+                {!HAS_PARAMS && (
+                  <button className="back-btn" onClick={handleBackToDemo} type="button">← Back</button>
+                )}
               </div>
             </div>
           )}
@@ -320,7 +331,7 @@ export default function App() {
           </div>
           <div className="trust-badge">
             <div className="trust-icon">🇮🇳</div>
-            <div><h3>Made in India</h3><p>Built for Indian card and UPI ecosystem</p></div>
+            <div><h3>Built for India</h3><p>Indian payment ecosystem</p></div>
           </div>
           <div className="trust-badge">
             <div className="trust-icon">⬡</div>
@@ -335,16 +346,13 @@ export default function App() {
         .logo { display: flex; align-items: baseline; gap: 6px; }
         .logo-mark { font-family: var(--font-display); font-size: 28px; color: var(--gold); line-height: 1; }
         .logo-text { font-family: var(--font-display); font-size: 20px; color: var(--paper); letter-spacing: -0.02em; }
-        .header-badge { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--emerald); background: rgba(46,204,143,0.08); border: 1px solid rgba(46,204,143,0.2); padding: 5px 10px; border-radius: 20px; letter-spacing: 0.04em; }
-        .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald); animation: pulse 2s ease-in-out infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .hero { margin-bottom: 40px; }
         .hero-label { font-family: var(--font-mono); font-size: 11px; color: var(--gold); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
         .hero-title { font-family: var(--font-display); font-size: clamp(28px, 4vw, 40px); color: var(--paper); font-weight: 400; line-height: 1.2; }
         .hero-title em { color: var(--gold); font-style: italic; }
         .main-grid { display: grid; grid-template-columns: 380px 1fr; gap: 28px; align-items: start; }
         @media (max-width: 820px) { .main-grid { grid-template-columns: 1fr; } .col-summary { order: 2; } .col-checkout { order: 1; } }
-        .order-summary { background: var(--ink-90); border: 1px solid var(--ink-60); border-radius: var(--radius-lg); padding: 28px; position: sticky; top: 24px; }
+        .order-summary { background: var(--ink-90); border: 1px solid var(--ink-60); border-radius: var(--radius-lg); padding: 28px; position: sticky; top: 24px; box-shadow: 0 18px 55px rgba(0,0,0,0.18); }
         .summary-header { margin-bottom: 20px; }
         .summary-tag { font-family: var(--font-mono); font-size: 11px; color: var(--gold); letter-spacing: 0.08em; text-transform: uppercase; }
         .summary-title { font-family: var(--font-display); font-size: 22px; color: var(--paper); margin-top: 4px; font-weight: 400; }
@@ -365,9 +373,9 @@ export default function App() {
         .demo-error { font-size: 12px; color: #ff6b6b; padding: 8px 12px; background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.2); border-radius: var(--radius-sm); }
         .demo-launch-btn { width: 100%; padding: 14px 20px; background: linear-gradient(135deg, var(--gold-dk), var(--gold)); border: none; border-radius: var(--radius-md); color: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 4px; }
         .demo-launch-btn:hover { opacity: 0.9; }
-        .demo-showcase { position: relative; min-height: 464px; overflow: hidden; background: var(--ink-90); margin-top: -132px; }
-        .demo-showcase-bg { position: absolute; inset: 0; display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 28px; padding: 42px; opacity: 0.18; filter: blur(16px); transform: scale(1.08); }
-        .demo-showcase-overlay { position: absolute; inset: 0; background: rgba(5,7,10,0.78); }
+        .demo-showcase { position: relative; min-height: 464px; overflow: hidden; background: var(--ink-90); margin-top: -132px; box-shadow: 0 18px 55px rgba(0,0,0,0.18); }
+        .demo-showcase-bg { position: absolute; inset: 0; display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 28px; padding: 42px; opacity: 0.22; filter: blur(22px); transform: scale(1.1); }
+        .demo-showcase-overlay { position: absolute; inset: 0; background: rgba(5,7,10,0.74); }
         .bg-order, .bg-checkout { border: 1px solid var(--ink-60); border-radius: var(--radius-lg); background: rgba(24,24,30,0.95); padding: 26px; }
         .bg-line { height: 16px; width: 100%; margin-bottom: 20px; border-radius: 8px; background: var(--ink-60); }
         .bg-line.short { width: 36%; background: var(--gold); }
@@ -393,17 +401,17 @@ export default function App() {
         .journey-step h3 { color: var(--paper); font-size: 18px; font-weight: 650; margin: 0; }
         .journey-step p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0; max-width: 170px; }
         .journey-line { height: 1px; width: 100%; margin-top: 32px; background: linear-gradient(90deg, rgba(201,168,76,0.15), var(--gold), rgba(201,168,76,0.15)); }
-        .secure-note { display: inline-flex; align-items: center; gap: 16px; max-width: 560px; margin: 0 auto 26px; padding: 14px 18px; border: 1px solid var(--ink-60); border-radius: var(--radius-md); background: rgba(24,24,30,0.72); color: var(--smoke); font-size: 13px; line-height: 1.5; text-align: left; }
-        .secure-note-icon { width: 38px; height: 38px; min-width: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid rgba(201,168,76,0.25); background: rgba(201,168,76,0.08); color: var(--gold); font-size: 20px; }
-        .live-example { color: var(--gold); font-size: 14px; font-weight: 600; position: relative; }
-        .live-example::before { content: '↺'; display: inline-block; margin-right: 20px; color: var(--gold); font-size: 28px; transform: rotate(-28deg) translateY(6px); }
+        .secure-note { display: inline-flex; align-items: center; justify-content: center; max-width: 520px; margin: 0 auto 26px; padding: 12px 18px; border: 1px solid var(--ink-60); border-radius: var(--radius-md); background: rgba(24,24,30,0.72); color: var(--smoke); font-size: 13px; line-height: 1.5; text-align: center; }
+        .live-example { color: var(--gold); font-size: 14px; font-weight: 600; position: relative; display: inline-block; }
+        .live-example::before { content: '↪'; position: absolute; left: -42px; top: -24px; color: var(--gold); font-size: 25px; transform: rotate(14deg); animation: guideFloat 2.6s ease-in-out infinite; opacity: 0.82; }
+        @keyframes guideFloat { 0%, 100% { transform: translateY(0) rotate(14deg); } 50% { transform: translateY(3px) rotate(14deg); } }
         .trust-badges { margin-top: 24px; display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--ink-80); border-radius: var(--radius-lg); background: rgba(24,24,30,0.64); overflow: hidden; }
-        .trust-badge { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-right: 1px solid var(--ink-80); }
+        .trust-badge { display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-right: 1px solid var(--ink-80); }
         .trust-badge:last-child { border-right: none; }
-        .trust-icon { width: 34px; min-width: 34px; color: var(--gold); font-size: 25px; text-align: center; }
-        .trust-badge h3 { margin: 0 0 6px; color: var(--paper); font-size: 14px; font-weight: 650; }
-        .trust-badge p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-        .checkout-card { background: var(--ink-90); border: 1px solid var(--ink-60); border-radius: var(--radius-lg); overflow: hidden; }
+        .trust-icon { width: 30px; min-width: 30px; color: var(--gold); font-size: 22px; text-align: center; }
+        .trust-badge h3 { margin: 0 0 5px; color: var(--paper); font-size: 13px; font-weight: 650; }
+        .trust-badge p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+        .checkout-card { background: var(--ink-90); border: 1px solid var(--ink-60); border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 18px 55px rgba(0,0,0,0.18); }
         .checkout-header { padding: 28px 28px 20px; border-bottom: 1px solid var(--ink-80); }
         .checkout-title { font-family: var(--font-display); font-size: 22px; color: var(--paper); font-weight: 400; margin-bottom: 6px; }
         .checkout-sub { font-size: 13px; color: var(--muted); }
@@ -418,7 +426,7 @@ export default function App() {
         .summary-divider { height: 1px; background: var(--ink-60); }
         .total-row .row-label { color: var(--smoke); font-weight: 500; }
         .total-amount-row { color: var(--paper); font-size: 16px; }
-        .flow-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .flow-info { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .flow-step { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
         .flow-num { width: 20px; height: 20px; border-radius: 50%; background: var(--ink-80); border: 1px solid var(--ink-60); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 10px; color: var(--gold); flex-shrink: 0; }
         .flow-arrow { color: var(--ink-60); font-size: 12px; }
@@ -426,6 +434,11 @@ export default function App() {
         .proceed-btn::before { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.1); opacity: 0; transition: opacity var(--transition); }
         .proceed-btn:hover::before { opacity: 1; }
         .proceed-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .back-btn { align-self: flex-start; margin-top: -8px; padding: 6px 0; background: transparent; border: none; color: var(--muted); font-family: var(--font-body); font-size: 13px; cursor: pointer; transition: color 0.2s ease; }
+        .back-btn:hover { color: var(--gold); }
+        .order-summary .total-amount { font-size: 30px !important; color: var(--gold) !important; text-shadow: 0 0 18px rgba(201,168,76,0.12); }
+        .split-slider .bar-card, .split-slider .bar-upi { transition: width 200ms ease, background 200ms ease !important; }
+        .split-slider .field-input, .split-slider .field-pct, .split-slider .bar-label { transition: color 200ms ease, opacity 200ms ease, transform 200ms ease; }
         .btn-spinner { width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.2); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .admin-nav-btn { padding: 7px 14px; background: transparent; border: 1px solid var(--ink-60); border-radius: var(--radius-sm); color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all var(--transition); }
