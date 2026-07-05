@@ -163,13 +163,11 @@ export default function App() {
           <span className="logo-mark">ƒ</span>
           <span className="logo-text">FinU</span>
         </div>
-        <div className="header-badge"><span className="badge-dot" />Live Mode</div>
-        <button className="admin-nav-btn" onClick={() => setShowAdmin(true)}>Sessions ↗</button>
       </header>
 
       <div className="hero">
         <div className="hero-label">Split Tender Payment</div>
-        <h1 className="hero-title">Pay your way,<br /><em>split across instruments</em></h1>
+        <h1 className="hero-title">The Missing Layer<br /><em>in Online Checkout</em></h1>
       </div>
 
       <main className="main-grid">
@@ -177,7 +175,6 @@ export default function App() {
           {phase === PHASE.DEMO ? (
             <div className="order-summary">
               <div className="summary-header">
-                <span className="summary-tag">Demo Configuration</span>
                 <h2 className="summary-title">Configure Order</h2>
               </div>
               <div className="demo-form">
@@ -214,10 +211,47 @@ export default function App() {
 
         <div className="col-checkout">
           {phase === PHASE.DEMO && (
-            <div className="checkout-card demo-placeholder">
-              <div className="placeholder-content">
-                <div className="placeholder-icon">⬡</div>
-                <p className="placeholder-text">Fill in the order details on the left and click <strong>Launch Checkout</strong> to begin.</p>
+            <div className="checkout-card demo-showcase">
+              <div className="demo-showcase-bg" aria-hidden="true">
+                <div className="bg-order">
+                  <div className="bg-line short" />
+                  <div className="bg-line medium" />
+                  <div className="bg-line" />
+                  <div className="bg-price" />
+                  <div className="bg-badge" />
+                </div>
+                <div className="bg-checkout">
+                  <div className="bg-line medium" />
+                  <div className="bg-bar"><span /><i /></div>
+                  <div className="bg-methods"><span /><span /></div>
+                  <div className="bg-total" />
+                  <div className="bg-button" />
+                </div>
+              </div>
+              <div className="demo-showcase-overlay" />
+              <div className="demo-showcase-content">
+                <div className="demo-pill">How Split Payment Works</div>
+                <h2 className="showcase-title">One Purchase.<br /><em>Multiple Payment Methods.</em></h2>
+                <div className="journey-row">
+                  <div className="journey-step">
+                    <div className="journey-icon">💳</div>
+                    <h3>Pay by Card</h3>
+                    <p>Choose amount to pay via Card.</p>
+                  </div>
+                  <div className="journey-line" />
+                  <div className="journey-step">
+                    <div className="journey-icon">📱</div>
+                    <h3>Pay by UPI</h3>
+                    <p>Pay the remaining amount via UPI.</p>
+                  </div>
+                  <div className="journey-line" />
+                  <div className="journey-step">
+                    <div className="journey-icon confirmed">✓</div>
+                    <h3>Order Confirmed</h3>
+                    <p>Payments sequentially processed and order confirmed.</p>
+                  </div>
+                </div>
+                <div className="live-example">See the live example in the next step →</div>
               </div>
             </div>
           )}
@@ -256,15 +290,33 @@ export default function App() {
         </div>
       </main>
 
+      {phase === PHASE.DEMO && (
+        <section className="trust-badges" aria-label="FinU platform highlights">
+          <div className="trust-badge">
+            <div className="trust-icon">🔒</div>
+            <div><h3>Safe Transactions</h3><p>Payments via RBI-regulated infrastructure</p></div>
+          </div>
+          <div className="trust-badge">
+            <div className="trust-icon">⚡</div>
+            <div><h3>Sequential Processing</h3><p>Card first, UPI second, one confirmation</p></div>
+          </div>
+          <div className="trust-badge">
+            <div className="trust-icon">🇮🇳</div>
+            <div><h3>Made in India</h3><p>Built for Indian card and UPI ecosystem</p></div>
+          </div>
+          <div className="trust-badge">
+            <div className="trust-icon">⬡</div>
+            <div><h3>Orchestration Layer</h3><p>Works with your existing payment stack</p></div>
+          </div>
+        </section>
+      )}
+
       <style>{`
         .app { min-height: 100vh; max-width: 1100px; margin: 0 auto; padding: 0 24px 60px; }
         .header { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; border-bottom: 1px solid var(--ink-80); margin-bottom: 40px; }
         .logo { display: flex; align-items: baseline; gap: 6px; }
         .logo-mark { font-family: var(--font-display); font-size: 28px; color: var(--gold); line-height: 1; }
         .logo-text { font-family: var(--font-display); font-size: 20px; color: var(--paper); letter-spacing: -0.02em; }
-        .header-badge { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--emerald); background: rgba(46,204,143,0.08); border: 1px solid rgba(46,204,143,0.2); padding: 5px 10px; border-radius: 20px; letter-spacing: 0.04em; }
-        .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald); animation: pulse 2s ease-in-out infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .hero { margin-bottom: 40px; }
         .hero-label { font-family: var(--font-mono); font-size: 11px; color: var(--gold); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
         .hero-title { font-family: var(--font-display); font-size: clamp(28px, 4vw, 40px); color: var(--paper); font-weight: 400; line-height: 1.2; }
@@ -286,11 +338,40 @@ export default function App() {
         .demo-error { font-size: 12px; color: #ff6b6b; padding: 8px 12px; background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.2); border-radius: var(--radius-sm); }
         .demo-launch-btn { width: 100%; padding: 14px 20px; background: linear-gradient(135deg, var(--gold-dk), var(--gold)); border: none; border-radius: var(--radius-md); color: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 4px; }
         .demo-launch-btn:hover { opacity: 0.9; }
-        .demo-placeholder { display: flex !important; align-items: center; justify-content: center; min-height: 300px; border: 1px dashed var(--ink-60) !important; background: transparent !important; }
-        .placeholder-content { text-align: center; padding: 40px; }
-        .placeholder-icon { font-size: 32px; color: var(--muted); margin-bottom: 16px; opacity: 0.4; }
-        .placeholder-text { font-size: 13px; color: var(--muted); line-height: 1.6; max-width: 220px; margin: 0 auto; }
-        .placeholder-text strong { color: var(--smoke); }
+        .demo-showcase { position: relative; min-height: 464px; overflow: hidden; background: var(--ink-90); }
+        .demo-showcase-bg { position: absolute; inset: 0; display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 28px; padding: 42px; opacity: 0.18; filter: blur(16px); transform: scale(1.08); }
+        .demo-showcase-overlay { position: absolute; inset: 0; background: rgba(5,7,10,0.78); }
+        .bg-order, .bg-checkout { border: 1px solid var(--ink-60); border-radius: var(--radius-lg); background: rgba(24,24,30,0.95); padding: 26px; }
+        .bg-line { height: 16px; width: 100%; margin-bottom: 20px; border-radius: 8px; background: var(--ink-60); }
+        .bg-line.short { width: 36%; background: var(--gold); }
+        .bg-line.medium { width: 58%; }
+        .bg-price { height: 42px; margin: 38px 0 22px; border-top: 1px solid var(--ink-60); border-bottom: 1px solid var(--ink-60); background: linear-gradient(90deg, transparent 58%, var(--gold) 58%); }
+        .bg-badge { height: 38px; border: 1px solid rgba(201,168,76,0.28); border-radius: var(--radius-sm); background: rgba(201,168,76,0.08); }
+        .bg-bar { display: flex; height: 38px; margin: 32px 0; overflow: hidden; border-radius: var(--radius-sm); }
+        .bg-bar span { flex: 0 0 67%; background: var(--gold-dk); }
+        .bg-bar i { flex: 1; background: var(--sapphire); }
+        .bg-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 24px; }
+        .bg-methods span { height: 72px; border: 1px solid var(--ink-60); border-radius: var(--radius-md); background: var(--ink-80); }
+        .bg-total { height: 142px; border: 1px solid var(--ink-60); border-radius: var(--radius-md); background: var(--ink-80); margin-bottom: 28px; }
+        .bg-button { height: 50px; border-radius: var(--radius-md); background: var(--gold); }
+        .demo-showcase-content { position: relative; z-index: 1; min-height: 464px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 36px 32px; text-align: center; }
+        .demo-pill { display: inline-flex; align-items: center; justify-content: center; margin-bottom: 22px; padding: 8px 18px; border: 1px solid rgba(201,168,76,0.26); border-radius: 999px; background: rgba(201,168,76,0.07); color: var(--gold); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+        .showcase-title { font-family: var(--font-display); color: var(--paper); font-size: clamp(25px, 3vw, 34px); font-weight: 400; line-height: 1.16; margin-bottom: 32px; }
+        .showcase-title em { color: var(--gold); font-style: italic; }
+        .journey-row { width: 100%; display: grid; grid-template-columns: 1fr 46px 1fr 46px 1fr; align-items: start; gap: 0; margin-bottom: 32px; }
+        .journey-step { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+        .journey-icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--gold); background: rgba(201,168,76,0.08); border: 1px solid rgba(201,168,76,0.18); font-size: 28px; box-shadow: 0 0 30px rgba(201,168,76,0.08); }
+        .journey-icon.confirmed { color: var(--emerald); border-color: rgba(46,204,143,0.24); background: rgba(46,204,143,0.08); font-family: var(--font-body); font-size: 30px; font-weight: 700; }
+        .journey-step h3 { color: var(--paper); font-size: 18px; font-weight: 650; margin: 0; }
+        .journey-step p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0; max-width: 170px; }
+        .journey-line { height: 1px; width: 100%; margin-top: 32px; background: linear-gradient(90deg, rgba(201,168,76,0.15), var(--gold), rgba(201,168,76,0.15)); }
+        .live-example { color: var(--gold); font-size: 14px; font-weight: 600; }
+        .trust-badges { margin-top: 24px; display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--ink-80); border-radius: var(--radius-lg); background: rgba(24,24,30,0.64); overflow: hidden; }
+        .trust-badge { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-right: 1px solid var(--ink-80); }
+        .trust-badge:last-child { border-right: none; }
+        .trust-icon { width: 34px; min-width: 34px; color: var(--gold); font-size: 25px; text-align: center; }
+        .trust-badge h3 { margin: 0 0 6px; color: var(--paper); font-size: 14px; font-weight: 650; }
+        .trust-badge p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
         .checkout-card { background: var(--ink-90); border: 1px solid var(--ink-60); border-radius: var(--radius-lg); overflow: hidden; }
         .checkout-header { padding: 28px 28px 20px; border-bottom: 1px solid var(--ink-80); }
         .checkout-title { font-family: var(--font-display); font-size: 22px; color: var(--paper); font-weight: 400; margin-bottom: 6px; }
@@ -318,6 +399,9 @@ export default function App() {
         @keyframes spin { to { transform: rotate(360deg); } }
         .admin-nav-btn { padding: 7px 14px; background: transparent; border: 1px solid var(--ink-60); border-radius: var(--radius-sm); color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all var(--transition); }
         .admin-nav-btn:hover { border-color: var(--gold); color: var(--gold); }
+        @media (max-width: 980px) { .trust-badges { grid-template-columns: repeat(2, 1fr); } .trust-badge:nth-child(2) { border-right: none; } .trust-badge:nth-child(-n+2) { border-bottom: 1px solid var(--ink-80); } }
+        @media (max-width: 820px) { .demo-showcase-content { min-height: auto; } .journey-row { grid-template-columns: 1fr; gap: 18px; } .journey-line { width: 1px; height: 28px; margin: 0 auto; } }
+        @media (max-width: 560px) { .trust-badges { grid-template-columns: 1fr; } .trust-badge, .trust-badge:nth-child(2) { border-right: none; border-bottom: 1px solid var(--ink-80); } .trust-badge:last-child { border-bottom: none; } }
       `}</style>
     </>)}
   </div>
