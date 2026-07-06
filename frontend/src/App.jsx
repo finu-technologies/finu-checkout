@@ -196,7 +196,7 @@ export default function App() {
       <main className="main-grid">
         <aside className="col-summary">
           {phase === PHASE.DEMO ? (
-            <div className="order-summary">
+            <div className="order-summary demo-config-card">
               <div className="summary-header">
                 <h2 className="summary-title">Configure Order</h2>
               </div>
@@ -236,6 +236,40 @@ export default function App() {
               <div className="summary-badge">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span>Secured by FinU Technologies</span>
+              </div>
+              <div className="integration-disclosure">
+                <input className="integration-toggle" type="checkbox" id="integration-flow-toggle" />
+                <label className="integration-trigger" htmlFor="integration-flow-toggle">
+                  <span className="integration-caret">▾</span>
+                  <span>See Integration Flow</span>
+                </label>
+                <div className="integration-panel">
+                  <div className="integration-panel-inner">
+                    <div className="flow-diagram">
+                      <div className="diagram-node">Merchant Website</div>
+                      <div className="diagram-line" />
+                      <div className="diagram-node">Existing Checkout</div>
+                      <div className="diagram-line" />
+                      <div className="diagram-node diagram-finu">
+                        <strong>FinU</strong>
+                        <span>The Missing Layer</span>
+                        <span>Payment Orchestration</span>
+                      </div>
+                      <div className="diagram-line" />
+                      <div className="diagram-node">
+                        Existing Payment Gateway
+                        <small>(Razorpay, PayU, Cashfree & others)</small>
+                      </div>
+                      <div className="diagram-line" />
+                      <div className="diagram-node diagram-final">Cards • UPI • Net Banking</div>
+                    </div>
+                    <div className="integration-points">
+                      <div>Integrates into your existing payment stack</div>
+                      <div>No checkout replacement required</div>
+                      <div>Sequential split payments & intelligent transaction orchestration</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -341,7 +375,7 @@ export default function App() {
           </div>
           <div className="trust-badge">
             <div className="trust-icon">⬡</div>
-            <div><h3>Orchestration Layer</h3><p>Works with your existing payment stack</p></div>
+            <div><h3>Orchestration Layer</h3><p>Works with your existing payment gateway.</p></div>
           </div>
         </section>
       )}
@@ -359,6 +393,7 @@ export default function App() {
         .main-grid { display: grid; grid-template-columns: 380px 1fr; gap: 28px; align-items: stretch; }
         @media (max-width: 820px) { .main-grid { grid-template-columns: 1fr; } .col-summary { order: 2; } .col-checkout { order: 1; } }
         .order-summary { background: var(--ink-90); border: 1px solid var(--ink-60); border-radius: var(--radius-lg); padding: 28px; position: sticky; top: 24px; box-shadow: 0 18px 55px rgba(0,0,0,0.18); }
+        .demo-config-card { transform: translateY(-18px); }
         .col-summary, .col-checkout { display: flex; align-items: stretch; }
         .col-summary .order-summary, .col-checkout .demo-showcase { width: 100%; min-height: 436px; }
         .summary-header { margin-bottom: 20px; }
@@ -366,6 +401,24 @@ export default function App() {
         .summary-title { font-family: var(--font-display); font-size: 22px; color: var(--paper); margin-top: 4px; font-weight: 400; }
         .summary-sub { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
         .summary-badge { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; padding: 0; background: transparent; border: none; border-radius: 0; font-size: 13px; color: var(--gold); }
+        .integration-disclosure { margin-top: 14px; border-top: 1px solid var(--ink-80); padding-top: 12px; }
+        .integration-toggle { display: none; }
+        .integration-trigger { display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; cursor: pointer; transition: color 0.2s ease; user-select: none; }
+        .integration-trigger:hover { color: var(--gold); }
+        .integration-caret { color: var(--gold); transition: transform 0.25s ease; }
+        .integration-panel { max-height: 0; opacity: 0; overflow: hidden; transform: translateY(-6px); transition: max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease; }
+        .integration-toggle:checked ~ .integration-trigger .integration-caret { transform: rotate(180deg); }
+        .integration-toggle:checked ~ .integration-panel { max-height: 560px; opacity: 1; transform: translateY(0); }
+        .integration-panel-inner { padding-top: 16px; }
+        .flow-diagram { display: flex; flex-direction: column; align-items: center; color: var(--smoke); font-size: 12px; line-height: 1.35; text-align: center; }
+        .diagram-node { width: 100%; max-width: 260px; }
+        .diagram-line { width: 1px; height: 18px; background: var(--ink-60); margin: 6px 0; }
+        .diagram-finu { border: 1px solid var(--ink-60); border-radius: var(--radius-sm); padding: 12px 14px; background: rgba(255,255,255,0.02); color: var(--paper); display: flex; flex-direction: column; gap: 2px; }
+        .diagram-finu strong { color: var(--gold); font-family: var(--font-display); font-size: 18px; font-weight: 400; }
+        .diagram-node small { display: block; color: var(--muted); margin-top: 3px; }
+        .diagram-final { color: var(--gold); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em; }
+        .integration-points { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+        .integration-points div::before { content: '•'; color: var(--gold); margin-right: 8px; }
         .demo-form { display: flex; flex-direction: column; gap: 18px; margin-bottom: 20px; }
         .demo-field { display: flex; flex-direction: column; gap: 6px; }
         .demo-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
@@ -452,7 +505,7 @@ export default function App() {
         .admin-nav-btn { padding: 7px 14px; background: transparent; border: 1px solid var(--ink-60); border-radius: var(--radius-sm); color: var(--muted); font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all var(--transition); }
         .admin-nav-btn:hover { border-color: var(--gold); color: var(--gold); }
         @media (max-width: 980px) { .trust-badges { grid-template-columns: repeat(2, 1fr); } .trust-badge:nth-child(2) { border-right: none; } .trust-badge:nth-child(-n+2) { border-bottom: 1px solid var(--ink-80); } }
-        @media (max-width: 820px) { .col-summary, .col-checkout { display: block; } .col-summary .order-summary, .col-checkout .demo-showcase { min-height: 0; } .demo-showcase-content { min-height: auto; } .journey-row { grid-template-columns: 1fr; gap: 18px; } .journey-line { width: 1px; height: 28px; margin: 0 auto; } .header { gap: 12px; flex-wrap: wrap; } }
+        @media (max-width: 820px) { .demo-config-card { transform: none; } .col-summary, .col-checkout { display: block; } .col-summary .order-summary, .col-checkout .demo-showcase { min-height: 0; } .demo-showcase-content { min-height: auto; } .journey-row { grid-template-columns: 1fr; gap: 18px; } .journey-line { width: 1px; height: 28px; margin: 0 auto; } .header { gap: 12px; flex-wrap: wrap; } }
         @media (max-width: 560px) { .trust-badges { grid-template-columns: 1fr; } .trust-badge, .trust-badge:nth-child(2) { border-right: none; border-bottom: 1px solid var(--ink-80); } .trust-badge:last-child { border-bottom: none; } }
       `}</style>
     </>)}
