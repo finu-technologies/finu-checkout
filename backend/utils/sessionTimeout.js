@@ -8,6 +8,7 @@ const { triggerRefund } = require('./refund');
 // How long a session can stay in a PENDING state before we expire it (ms)
 const TIMEOUTS = {
   CARD_PENDING: 15 * 60 * 1000,  // 15 min — Razorpay checkout window
+  CARD_AUTHORIZED: 10 * 60 * 1000, // 10 min — card authorized but UPI not started/completed
   UPI_PENDING:  10 * 60 * 1000,  // 10 min — UPI has shorter timeout
   CREATED:       5 * 60 * 1000,  //  5 min — should move to CARD_PENDING fast
 };
@@ -15,6 +16,7 @@ const TIMEOUTS = {
 // States that are already terminal — skip them
 const TERMINAL_STATES = new Set([
   'COMPLETED', 'CARD_FAILED', 'UPI_FAILED', 'CANCELLED', 'REFUND_FLAGGED',
+  'AUTH_RELEASE_PENDING', 'CARD_CAPTURE_FAILED',
 ]);
 
 async function runTimeoutSweep() {
@@ -35,16 +37,23 @@ async function runTimeoutSweep() {
     const ageMin = Math.round(age / 60000);
     console.log(`[timeout] Session ${sessionId} — state: ${session.state} — age: ${ageMin}m — EXPIRING`);
 
-    if (session.state === 'UPI_PENDING' && session.cardPaymentId) {
-      // Card already charged — must refund before cancelling
-      console.log(`[timeout] UPI timeout with card already captured — triggering refund`);
+    if ((session.state === 'UPI_PENDING' || session.state === 'CARD_AUTHORIZED') && session.cardPaymentId && !session.cardCapturedAt) {
+      // Card is only authorized. Do not capture and do not refund; Razorpay releases
+      // uncaptured authorizations after the configured/manual capture expiry window.
+      console.log(`[timeout] ${session.state} timeout with uncaptured authorization — leaving authorization uncaptured`);
+      SessionStore.update(sessionId, {
+        state: 'AUTH_RELEASE_PENDING',
+        cardCaptureStatus: 'left_uncaptured',
+        logs: [
+          ...session.logs,
+          `AUTHORIZATION_LEFT_UNCAPTURED payment ${session.cardPaymentId}: ${session.state} timed out after ${ageMin} minutes`,
+        ],
+      });
+    } else if (session.state === 'UPI_PENDING' && session.cardPaymentId && session.cardCapturedAt) {
+      // Legacy safety path for sessions created before manual capture rollout.
+      console.log(`[timeout] UPI timeout with captured card — triggering refund`);
       try {
-        await triggerRefund(
-          sessionId,
-          session.cardPaymentId,
-          session.cardAmount,
-          `UPI timed out after ${ageMin} minutes`
-        );
+        await triggerRefund(sessionId, session.cardPaymentId, session.cardAmount, `UPI timed out after ${ageMin} minutes`);
       } catch (err) {
         console.error(`[timeout] Refund failed for ${sessionId}:`, err.message);
         SessionStore.update(sessionId, {

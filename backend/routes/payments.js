@@ -53,15 +53,132 @@ function safeJson(res, status, body) {
 const STATE = {
   CREATED:        'CREATED',
   CARD_PENDING:   'CARD_PENDING',
+  CARD_AUTHORIZED: 'CARD_AUTHORIZED',
+  CARD_CAPTURE_PENDING: 'CARD_CAPTURE_PENDING',
+  CARD_CAPTURED:  'CARD_CAPTURED',
   CARD_SUCCESS:   'CARD_SUCCESS',
   CARD_FAILED:    'CARD_FAILED',
   UPI_PENDING:    'UPI_PENDING',
   UPI_SUCCESS:    'UPI_SUCCESS',
+  CARD_CAPTURE_FAILED: 'CARD_CAPTURE_FAILED',
+  AUTH_RELEASE_PENDING: 'AUTH_RELEASE_PENDING',
   UPI_FAILED:     'UPI_FAILED',
   COMPLETED:      'COMPLETED',
   CANCELLED:      'CANCELLED',
   REFUND_FLAGGED: 'REFUND_FLAGGED',
 };
+
+function appendLog(session, message) {
+  return [...(session.logs || []), message];
+}
+
+async function fetchPayment(paymentId) {
+  const rzp = getRazorpay();
+  return rzp.payments.fetch(paymentId);
+}
+
+async function captureAuthorizedCardPayment(sessionId, reason = 'UPI verified') {
+  const session = SessionStore.get(sessionId);
+  if (!session) throw new Error(`Session ${sessionId} not found`);
+
+  if (session.state === STATE.COMPLETED || session.cardCapturedAt || session.cardCaptureStatus === 'captured') {
+    console.log(`[capture] ${sessionId} already completed/captured. Skipping duplicate capture.`);
+    return { alreadyCaptured: true, session };
+  }
+
+  if (!session.cardPaymentId) throw new Error('No card payment ID available for capture');
+
+  console.log(`[capture] CARD_CAPTURE_STARTED session=${sessionId} payment=${session.cardPaymentId} reason=${reason}`);
+
+  const payment = await fetchPayment(session.cardPaymentId);
+  console.log('[capture] Payment status before capture:', {
+    sessionId,
+    paymentId: session.cardPaymentId,
+    status: payment.status,
+    captured: payment.captured,
+  });
+
+  if (payment.captured || payment.status === 'captured') {
+    const updated = SessionStore.update(sessionId, {
+      state: STATE.COMPLETED,
+      cardCaptureStatus: 'captured',
+      cardCapturedAt: new Date().toISOString(),
+      logs: appendLog(session, `CARD_CAPTURE_SUCCESS payment ${session.cardPaymentId} was already captured. ORDER_COMPLETED.`),
+    });
+    return { alreadyCaptured: true, session: updated };
+  }
+
+  if (payment.status !== 'authorized') {
+    const updated = SessionStore.update(sessionId, {
+      state: STATE.CARD_CAPTURE_FAILED,
+      cardCaptureStatus: 'failed',
+      cardCaptureError: `Cannot capture payment in status: ${payment.status}`,
+      logs: appendLog(session, `CARD_CAPTURE_FAILED payment ${session.cardPaymentId} status was ${payment.status}; expected authorized.`),
+    });
+    const err = new Error(`Cannot capture payment in status: ${payment.status}`);
+    err.session = updated;
+    throw err;
+  }
+
+  SessionStore.update(sessionId, {
+    state: STATE.CARD_CAPTURE_PENDING,
+    cardCaptureStatus: 'pending',
+    logs: appendLog(session, `CARD_CAPTURE_STARTED payment ${session.cardPaymentId}.`),
+  });
+
+  try {
+    const rzp = getRazorpay();
+    const capture = await rzp.payments.capture(
+      session.cardPaymentId,
+      Math.round(session.cardAmount * 100),
+      'INR'
+    );
+
+    const fresh = SessionStore.get(sessionId) || session;
+    const updated = SessionStore.update(sessionId, {
+      state: STATE.COMPLETED,
+      cardCaptureStatus: 'captured',
+      cardCapturedAt: new Date().toISOString(),
+      cardCaptureResponse: {
+        id: capture.id,
+        status: capture.status,
+        captured: capture.captured,
+      },
+      logs: appendLog(fresh, `CARD_CAPTURE_SUCCESS payment ${session.cardPaymentId}. ORDER_COMPLETED.`),
+    });
+
+    console.log(`[capture] CARD_CAPTURE_SUCCESS session=${sessionId} payment=${session.cardPaymentId}`);
+    console.log(`[capture] ORDER_COMPLETED session=${sessionId}`);
+    return { capture, session: updated };
+  } catch (err) {
+    const msg = razorpayErrMsg(err);
+    const fresh = SessionStore.get(sessionId) || session;
+    const updated = SessionStore.update(sessionId, {
+      state: STATE.CARD_CAPTURE_FAILED,
+      cardCaptureStatus: 'failed',
+      cardCaptureError: msg,
+      logs: appendLog(fresh, `CARD_CAPTURE_FAILED payment ${session.cardPaymentId}: ${msg}`),
+    });
+    console.error(`[capture] CARD_CAPTURE_FAILED session=${sessionId}:`, msg);
+    err.session = updated;
+    throw err;
+  }
+}
+
+function leaveAuthorizationUncaptured(sessionId, reason) {
+  const session = SessionStore.get(sessionId);
+  if (!session) return null;
+  if (session.cardCaptureStatus === 'captured' || session.state === STATE.COMPLETED) return session;
+
+  const updated = SessionStore.update(sessionId, {
+    state: STATE.AUTH_RELEASE_PENDING,
+    cardCaptureStatus: 'left_uncaptured',
+    authorizationReleaseExpectedAt: null,
+    logs: appendLog(session, `AUTHORIZATION_LEFT_UNCAPTURED payment ${session.cardPaymentId || 'unknown'}: ${reason}`),
+  });
+  console.log(`[auth] AUTHORIZATION_LEFT_UNCAPTURED session=${sessionId} reason=${reason}`);
+  return updated;
+}
 
 // ─── 1. CREATE PAYMENT SESSION ────────────────────────────────────────────────
 router.post('/session/create', async (req, res) => {
@@ -83,6 +200,13 @@ router.post('/session/create', async (req, res) => {
       currency: 'INR',
       receipt: `card_${sessionId.slice(0, 8)}`,
       notes: { sessionId, leg: 'CARD' },
+      payment: {
+        capture: 'manual',
+        capture_options: {
+          manual_expiry_period: 7200,
+          refund_speed: 'normal',
+        },
+      },
     });
 
     SessionStore.create(sessionId, {
@@ -95,10 +219,15 @@ router.post('/session/create', async (req, res) => {
       state: STATE.CARD_PENDING,
       cardOrderId: cardOrder.id,
       cardPaymentId: null,
+      cardAuthorizedAt: null,
+      cardCapturedAt: null,
+      cardCaptureStatus: 'not_started',
+      cardCaptureError: null,
+      authorizationReleaseExpectedAt: null,
       upiOrderId: null,
       upiPaymentId: null,
       refundFlagged: false,
-      logs: [`Session created. Card order ${cardOrder.id} initiated.`],
+      logs: [`Session created. Manual-capture card order ${cardOrder.id} initiated.`],
     });
 
     return res.json({
@@ -151,6 +280,17 @@ router.post('/payment/card/verify', async (req, res) => {
     }
     console.log('[card/verify] session state:', session.state);
 
+    if (session.state === STATE.UPI_PENDING && session.cardPaymentId === razorpay_payment_id && session.upiOrderId) {
+      console.log('[card/verify] duplicate verify received; returning existing UPI order');
+      return res.json({
+        success: true,
+        message: 'Card payment already authorized. Proceed with UPI.',
+        upiOrderId: session.upiOrderId,
+        upiAmount: session.upiAmount,
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+      });
+    }
+
     if (session.state !== STATE.CARD_PENDING) {
       console.error('[card/verify] wrong state:', session.state);
       return res.status(400).json({
@@ -182,12 +322,14 @@ router.post('/payment/card/verify', async (req, res) => {
     }
     console.log('[card/verify] step 3 — signature OK');
 
-    // ── Step 4: mark card success ──
-    console.log('[card/verify] step 4 — updating session to CARD_SUCCESS');
+    // ── Step 4: mark card authorization ──
+    console.log('[card/verify] step 4 — updating session to CARD_AUTHORIZED');
     const afterCard = SessionStore.update(sessionId, {
-      state: STATE.CARD_SUCCESS,
+      state: STATE.CARD_AUTHORIZED,
       cardPaymentId: razorpay_payment_id,
-      logs: [...session.logs, `Card payment ${razorpay_payment_id} verified successfully.`],
+      cardAuthorizedAt: new Date().toISOString(),
+      cardCaptureStatus: 'authorized',
+      logs: [...session.logs, `CARD_AUTHORIZED payment ${razorpay_payment_id} verified successfully.`],
     });
     console.log('[card/verify] step 4 — session updated', afterCard?.state);
 
@@ -208,10 +350,15 @@ router.post('/payment/card/verify', async (req, res) => {
       // Session stays CARD_SUCCESS so ops team / timeout worker can refund.
       const msg = razorpayErrMsg(orderErr);
       console.error('[card/verify] step 5 — Razorpay UPI order creation FAILED:', msg);
-      console.error('[card/verify] raw error object:', JSON.stringify(orderErr, null, 2));
+      try {
+        console.error('[card/verify] raw error object:', JSON.stringify(orderErr, null, 2));
+      } catch {
+        console.error('[card/verify] raw error object could not be stringified');
+      }
+      leaveAuthorizationUncaptured(sessionId, `Failed to create UPI order: ${msg}`);
       return safeJson(res, 500, {
         error: `Failed to create UPI order: ${msg}`,
-        hint: 'Card was charged. Session remains in CARD_SUCCESS for manual review.',
+        hint: 'Card was authorized but not captured. Authorization has been left uncaptured.',
         sessionId,
       });
     }
@@ -225,7 +372,7 @@ router.post('/payment/card/verify', async (req, res) => {
       upiOrderId: upiOrder.id,
       logs: [
         ...(afterCard ? afterCard.logs : session.logs),
-        `UPI order ${upiOrder.id} created. Awaiting UPI payment.`,
+        `UPI_STARTED order ${upiOrder.id} created. Awaiting UPI payment.`,
       ],
     });
     console.log('[card/verify] step 6 — session updated to UPI_PENDING');
@@ -234,7 +381,7 @@ router.post('/payment/card/verify', async (req, res) => {
     console.log('[card/verify] step 7 — sending success response');
     return res.json({
       success: true,
-      message: 'Card payment verified. Proceed with UPI.',
+      message: 'Card payment authorized. Proceed with UPI.',
       upiOrderId: upiOrder.id,
       upiAmount: session.upiAmount,
       razorpayKeyId: process.env.RAZORPAY_KEY_ID,
@@ -275,29 +422,39 @@ router.post('/payment/upi/verify', async (req, res) => {
       .digest('hex');
 
     if (expectedSignature !== razorpay_signature) {
-      SessionStore.update(sessionId, {
-        state: STATE.REFUND_FLAGGED,
-        refundFlagged: true,
-        logs: [...session.logs, `UPI signature mismatch. Card payment ${session.cardPaymentId} flagged for refund.`],
-      });
+      const updated = leaveAuthorizationUncaptured(sessionId, `UPI signature mismatch for payment ${razorpay_payment_id}`);
       return res.status(400).json({
-        error: 'UPI payment verification failed. Card payment flagged for refund.',
-        state: STATE.REFUND_FLAGGED,
+        error: 'UPI payment verification failed. Card authorization left uncaptured.',
+        state: STATE.AUTH_RELEASE_PENDING,
         cardPaymentId: session.cardPaymentId,
+        session: updated,
       });
     }
 
     const updatedSession = SessionStore.update(sessionId, {
-      state: STATE.COMPLETED,
+      state: STATE.UPI_SUCCESS,
       upiPaymentId: razorpay_payment_id,
-      logs: [...session.logs, `UPI payment ${razorpay_payment_id} verified. ORDER CONFIRMED. Both legs complete.`],
+      logs: [...session.logs, `UPI_VERIFIED payment ${razorpay_payment_id}. Capturing authorized card payment.`],
     });
+
+    let captureResult;
+    try {
+      captureResult = await captureAuthorizedCardPayment(sessionId, 'UPI_VERIFIED');
+    } catch (captureErr) {
+      const msg = razorpayErrMsg(captureErr);
+      console.error('[upi/verify] CARD_CAPTURE_FAILED after UPI success:', msg);
+      return safeJson(res, 500, {
+        error: `UPI verified but card capture failed: ${msg}`,
+        state: STATE.CARD_CAPTURE_FAILED,
+        session: captureErr.session || SessionStore.get(sessionId),
+      });
+    }
 
     console.log('[upi/verify] ✓ ORDER COMPLETED', sessionId);
     return res.json({
       success: true,
-      message: 'Both payments verified. Order confirmed!',
-      session: updatedSession,
+      message: 'UPI verified and card captured. Order confirmed!',
+      session: captureResult.session || updatedSession,
       state: STATE.COMPLETED,
     });
   } catch (err) {
@@ -314,7 +471,15 @@ router.post('/session/:sessionId/cancel', async (req, res) => {
     const session = SessionStore.get(sessionId);
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
-    const needsRefund = session.state === STATE.CARD_SUCCESS || session.state === STATE.UPI_PENDING;
+    const hasCapturedCard = session.cardCaptureStatus === 'captured' || session.cardCapturedAt;
+    const hasUncapturedAuthorization = session.cardPaymentId && !hasCapturedCard;
+
+    if (hasUncapturedAuthorization) {
+      const updated = leaveAuthorizationUncaptured(sessionId, 'Session cancelled before card capture');
+      return res.json({ success: true, session: updated });
+    }
+
+    const needsRefund = session.state === STATE.CARD_SUCCESS || session.state === STATE.UPI_PENDING || hasCapturedCard;
 
     const updated = SessionStore.update(sessionId, {
       state: needsRefund ? STATE.REFUND_FLAGGED : STATE.CANCELLED,
