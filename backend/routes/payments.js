@@ -180,10 +180,17 @@ function leaveAuthorizationUncaptured(sessionId, reason) {
   return updated;
 }
 
+function receiptFor(orderRef, leg) {
+  const suffix = `_${leg}`;
+  const rawRef = String(orderRef || '').trim() || `ORD${Date.now().toString().slice(-6)}`;
+  const safeRef = rawRef.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40 - suffix.length);
+  return `${safeRef || 'ORDER'}${suffix}`;
+}
+
 // ─── 1. CREATE PAYMENT SESSION ────────────────────────────────────────────────
 router.post('/session/create', async (req, res) => {
   try {
-    const { orderTotal, cardAmount, upiAmount, customerEmail, customerPhone } = req.body;
+    const { orderTotal, cardAmount, upiAmount, customerEmail, customerPhone, merchantOrderRef } = req.body;
 
     if (!orderTotal || !cardAmount || !upiAmount) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -198,7 +205,7 @@ router.post('/session/create', async (req, res) => {
     const cardOrder = await rzp.orders.create({
       amount: Math.round(cardAmount * 100),
       currency: 'INR',
-      receipt: `card_${sessionId.slice(0, 8)}`,
+      receipt: receiptFor(merchantOrderRef || sessionId, 'CARD'),
       notes: { sessionId, leg: 'CARD' },
       payment: {
         capture: 'manual',
@@ -214,6 +221,7 @@ router.post('/session/create', async (req, res) => {
       orderTotal,
       cardAmount,
       upiAmount,
+      merchantOrderRef: merchantOrderRef || '',
       customerEmail: customerEmail || '',
       customerPhone: customerPhone || '',
       state: STATE.CARD_PENDING,
@@ -342,7 +350,7 @@ router.post('/payment/card/verify', async (req, res) => {
       upiOrder = await rzp.orders.create({
         amount: Math.round(session.upiAmount * 100),
         currency: 'INR',
-        receipt: `upi_${sessionId.slice(0, 8)}`,
+        receipt: receiptFor(session.merchantOrderRef || session.sessionId, 'UPI'),
         notes: { sessionId, leg: 'UPI' },
       });
     } catch (orderErr) {

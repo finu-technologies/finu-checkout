@@ -12,8 +12,11 @@ const STEPS = [
 const STATE_MAP = {
   CREATED:        { active: 'session', done: [] },
   CARD_PENDING:   { active: 'card',    done: ['session'] },
+  CARD_AUTHORIZED:{ active: 'upi',     done: ['session', 'card'] },
   CARD_SUCCESS:   { active: 'upi',     done: ['session', 'card'] },
   UPI_PENDING:    { active: 'upi',     done: ['session', 'card'] },
+  CARD_CAPTURE_FAILED: { active: null, done: ['session', 'card', 'upi'], failed: 'confirm' },
+  AUTH_RELEASE_PENDING: { active: null, done: ['session', 'card'], failed: 'upi' },
   COMPLETED:      { active: null,      done: ['session', 'card', 'upi', 'confirm'] },
   CARD_FAILED:    { active: 'card',    done: ['session'],         failed: 'card' },
   UPI_FAILED:     { active: 'upi',     done: ['session', 'card'], failed: 'upi' },
@@ -21,7 +24,8 @@ const STATE_MAP = {
   CANCELLED:      { active: null,      done: ['session'],         failed: 'session' },
 };
 
-const UPI_STATES = new Set(['CARD_SUCCESS', 'UPI_PENDING']);
+const UPI_STATES = new Set(['CARD_SUCCESS', 'CARD_AUTHORIZED', 'UPI_PENDING']);
+const EXPIRED_STATES = new Set(['AUTH_RELEASE_PENDING', 'CANCELLED', 'EXPIRED']);
 
 function StepIcon({ status }) {
   if (status === 'done') return (
@@ -38,10 +42,12 @@ function StepIcon({ status }) {
   return null;
 }
 
-export default function PaymentStatus({ state, sessionId, error, onReset }) {
+export default function PaymentStatus({ state, sessionId, error, onReset, onContinueUpi, canContinueUpi = false }) {
   const map        = STATE_MAP[state] || STATE_MAP.CREATED;
   const isComplete = state === 'COMPLETED';
-  const isFailed   = state === 'CARD_FAILED' || state === 'UPI_FAILED' || state === 'CANCELLED';
+  const isExpired  = EXPIRED_STATES.has(state);
+  const isCaptureFailed = state === 'CARD_CAPTURE_FAILED';
+  const isFailed   = state === 'CARD_FAILED' || state === 'UPI_FAILED' || state === 'CANCELLED' || isCaptureFailed || isExpired;
   const isRefund   = state === 'REFUND_FLAGGED';
   const isUpiStep  = UPI_STATES.has(state);
 
@@ -60,8 +66,8 @@ export default function PaymentStatus({ state, sessionId, error, onReset }) {
         {(isFailed || isRefund) && (
           <>
             <div className="status-icon failed-icon">✕</div>
-            <h3>{isRefund ? 'Refund Initiated' : 'Payment Failed'}</h3>
-            <p>{error || (isRefund ? 'Card amount will be refunded.' : 'Transaction could not be completed.')}</p>
+            <h3>{isExpired ? 'Session Expired' : isRefund ? 'Refund Initiated' : isCaptureFailed ? 'Payment Needs Review' : 'Payment Failed'}</h3>
+            <p>{error || (isExpired ? 'This payment session has expired. Please start a new payment.' : isRefund ? 'Card amount will be refunded.' : 'Transaction could not be completed.')}</p>
           </>
         )}
         {!isComplete && !isFailed && !isRefund && (
@@ -91,6 +97,10 @@ export default function PaymentStatus({ state, sessionId, error, onReset }) {
             </div>
           </div>
         </div>
+      )}
+
+      {canContinueUpi && (
+        <button className="continue-upi-btn" onClick={onContinueUpi}>Continue UPI Payment</button>
       )}
 
       {/* ── Progress steps ─────────────────────────────────────── */}
@@ -128,7 +138,7 @@ export default function PaymentStatus({ state, sessionId, error, onReset }) {
 
       {/* ── Reset ──────────────────────────────────────────────── */}
       {(isComplete || isFailed || isRefund) && (
-        <button className="reset-btn" onClick={onReset}>Start New Order</button>
+        <button className="reset-btn" onClick={onReset}>Start New Payment</button>
       )}
 
       <style>{`
@@ -283,6 +293,20 @@ export default function PaymentStatus({ state, sessionId, error, onReset }) {
           transition: all var(--transition);
         }
         .reset-btn:hover { background: var(--ink-60); color: var(--paper); }
+        .continue-upi-btn {
+          display: block;
+          width: calc(100% - 56px);
+          margin: 20px 28px 0;
+          padding: 12px;
+          border-radius: var(--radius-sm);
+          background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+          border: none;
+          color: var(--ink);
+          font-family: var(--font-body);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+        }
       `}</style>
     </div>
   );
