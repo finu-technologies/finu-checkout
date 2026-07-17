@@ -18,6 +18,27 @@ function appendLog(session, message) {
   return [...(session.logs || []), message];
 }
 
+function receiptFor(orderRef, leg) {
+  const suffix = `_${leg}`;
+  const rawRef = String(orderRef || '').trim() || `ORD${Date.now().toString().slice(-6)}`;
+  const safeRef = rawRef.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40 - suffix.length);
+  return `${safeRef || 'ORDER'}${suffix}`;
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForStoredUpiOrder(sessionId) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await delay(500);
+    const session = SessionStore.get(sessionId);
+    if (session?.upiOrderId) return session;
+    if (!session?.upiOrderCreatingAt) return null;
+  }
+  return SessionStore.get(sessionId);
+}
+
 // ─── Webhook signature verification middleware ────────────────────────────────
 function verifyWebhookSignature(req, res, next) {
   const signature = req.headers['x-razorpay-signature'];
@@ -146,6 +167,66 @@ function leaveAuthorizationUncaptured(sessionId, reason) {
   return updated;
 }
 
+async function ensureUpiOrderForAuthorizedCard(sessionId, reason = 'webhook card authorization') {
+  const session = SessionStore.get(sessionId);
+  if (!session) throw new Error(`Session ${sessionId} not found`);
+
+  if (session.upiOrderId) {
+    console.log(`[webhook] Existing UPI order reused for ${sessionId}: ${session.upiOrderId}`);
+    return SessionStore.get(sessionId);
+  }
+
+  if (!session.cardPaymentId || !['CARD_AUTHORIZED', 'UPI_PENDING'].includes(session.state)) {
+    throw new Error(`Cannot create UPI order in state: ${session.state}`);
+  }
+
+  if (session.upiOrderCreatingAt) {
+    const pending = await waitForStoredUpiOrder(sessionId);
+    if (pending?.upiOrderId) {
+      console.log(`[webhook] UPI order created by concurrent flow for ${sessionId}: ${pending.upiOrderId}`);
+      return pending;
+    }
+  }
+
+  const locked = SessionStore.update(sessionId, {
+    upiOrderCreatingAt: new Date().toISOString(),
+    logs: appendLog(session, `UPI_ORDER_CREATING via ${reason}.`),
+  });
+
+  console.log(`[webhook] Creating UPI order for ${sessionId}; reason=${reason}`);
+  let upiOrder;
+  try {
+    upiOrder = await razorpay.orders.create({
+      amount: Math.round(session.upiAmount * 100),
+      currency: 'INR',
+      receipt: receiptFor(session.merchantOrderRef || session.sessionId, 'UPI'),
+      notes: { sessionId, leg: 'UPI' },
+    });
+  } catch (err) {
+    const fresh = SessionStore.get(sessionId) || locked || session;
+    SessionStore.update(sessionId, {
+      upiOrderCreatingAt: null,
+      upiOrderCreationError: err.error?.description || err.message || 'Unknown UPI order creation error',
+      logs: appendLog(fresh, `UPI_ORDER_CREATE_FAILED via ${reason}: ${err.error?.description || err.message || 'Unknown error'}`),
+    });
+    throw err;
+  }
+
+  const fresh = SessionStore.get(sessionId) || session;
+  if (fresh.upiOrderId) {
+    console.log(`[webhook] Concurrent UPI order already stored for ${sessionId}: ${fresh.upiOrderId}`);
+    return fresh;
+  }
+
+  return SessionStore.update(sessionId, {
+    state: 'UPI_PENDING',
+    upiOrderId: upiOrder.id,
+    upiOrderCreatingAt: null,
+    upiOrderCreationError: null,
+    logs: appendLog(fresh, `UPI_STARTED order ${upiOrder.id} created via ${reason}. Awaiting UPI payment.`),
+  });
+}
+
 // ─── POST /webhook/razorpay ───────────────────────────────────────────────────
 router.post('/razorpay', verifyWebhookSignature, async (req, res) => {
   const event = req.body;
@@ -173,15 +254,30 @@ async function handleEvent(eventName, payload) {
       if (!session) { console.warn(`[webhook] No session found for authorized order ${orderId}`); return; }
 
       const isCardLeg = session.cardOrderId === orderId;
-      if (isCardLeg && session.state === 'CARD_PENDING') {
-        SessionStore.update(session.sessionId, {
-          state: 'CARD_AUTHORIZED',
-          cardPaymentId: payment.id,
-          cardAuthorizedAt: new Date().toISOString(),
-          cardCaptureStatus: 'authorized',
-          logs: appendLog(session, `CARD_AUTHORIZED via webhook: ${payment.id}`),
-        });
-        console.log(`[webhook] CARD_AUTHORIZED for session ${session.sessionId}`);
+      if (isCardLeg && ['CARD_PENDING', 'CARD_AUTHORIZED', 'UPI_PENDING'].includes(session.state)) {
+        const latest = SessionStore.get(session.sessionId) || session;
+        if (!latest.cardPaymentId) {
+          SessionStore.update(session.sessionId, {
+            state: 'CARD_AUTHORIZED',
+            cardPaymentId: payment.id,
+            cardAuthorizedAt: new Date().toISOString(),
+            cardCaptureStatus: 'authorized',
+            logs: appendLog(latest, `CARD_AUTHORIZED via webhook: ${payment.id}`),
+          });
+        } else if (latest.cardPaymentId !== payment.id) {
+          console.warn(`[webhook] Card authorized payment mismatch for session ${session.sessionId}: existing=${latest.cardPaymentId} incoming=${payment.id}`);
+          return;
+        } else if (latest.state === 'CARD_PENDING') {
+          SessionStore.update(session.sessionId, {
+            state: 'CARD_AUTHORIZED',
+            cardAuthorizedAt: latest.cardAuthorizedAt || new Date().toISOString(),
+            cardCaptureStatus: latest.cardCaptureStatus || 'authorized',
+            logs: appendLog(latest, `CARD_AUTHORIZED duplicate webhook confirmed: ${payment.id}`),
+          });
+        }
+
+        await ensureUpiOrderForAuthorizedCard(session.sessionId, 'payment.authorized webhook');
+        console.log(`[webhook] CARD_AUTHORIZED and UPI order ensured for session ${session.sessionId}`);
       }
       break;
     }

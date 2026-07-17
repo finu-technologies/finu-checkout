@@ -97,13 +97,13 @@ export default function App() {
     setProductName(saved?.productName || productName || 'Order');
     setOrderId(saved?.orderId || backendSession.merchantOrderRef || orderId || generateOrderId());
     setRecoveredUpiOrderId(backendSession.upiOrderId || saved?.upiOrderId || null);
-    setRecoveredKeyId(saved?.razorpayKeyId || null);
+    setRecoveredKeyId(saved?.razorpayKeyId || backendSession.razorpayKeyId || null);
     setPayState(nextState);
 
     if (nextState === 'UPI_PENDING') {
       setPhase(PHASE.PROCESSING);
       setError('');
-      saveActiveSession({ ...saved, sessionId: backendSession.sessionId, upiOrderId: backendSession.upiOrderId, state: nextState });
+      saveActiveSession({ ...saved, sessionId: backendSession.sessionId, upiOrderId: backendSession.upiOrderId, razorpayKeyId: backendSession.razorpayKeyId || saved?.razorpayKeyId, state: nextState });
       return;
     }
 
@@ -167,6 +167,17 @@ export default function App() {
     return () => clearInterval(interval);
   }, [applyBackendSession, payState, phase, sessionId]);
 
+  const waitForBackendUpiOrder = useCallback(async (targetSessionId) => {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const backendSession = await api.getSession(targetSessionId).catch(() => null);
+      if (!backendSession) return null;
+      if (backendSession.state === 'UPI_PENDING' && backendSession.upiOrderId) return backendSession;
+      if (TERMINAL_STATES.has(backendSession.state)) return backendSession;
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    return api.getSession(targetSessionId).catch(() => null);
+  }, []);
+
   // ─── DEMO LAUNCH ─────────────────────────────────────────────────────────
   const handleDemoLaunch = useCallback(() => {
     setDemoError('');
@@ -215,6 +226,28 @@ export default function App() {
           notes: { leg: 'CARD', sessionId: session.sessionId, merchant_id: merchantId, order_ref: orderId },
         });
       } catch (cardErr) {
+        const backendSession = await waitForBackendUpiOrder(session.sessionId);
+        if (backendSession?.state === 'UPI_PENDING' && backendSession.upiOrderId) {
+          applyBackendSession(backendSession, activeSessionRef.current);
+          saveActiveSession({
+            sessionId: session.sessionId,
+            cardOrderId: session.cardOrderId,
+            razorpayKeyId: session.razorpayKeyId,
+            upiOrderId: backendSession.upiOrderId,
+            state: 'UPI_PENDING',
+          });
+          setRecoveredUpiOrderId(backendSession.upiOrderId);
+          setRecoveredKeyId(session.razorpayKeyId);
+          setPayState('UPI_PENDING');
+          setPhase(PHASE.PROCESSING);
+          setLoading(false);
+          return;
+        }
+        if (backendSession && backendSession.state !== 'CARD_PENDING') {
+          applyBackendSession(backendSession, activeSessionRef.current);
+          setLoading(false);
+          return;
+        }
         await api.cancelSession(session.sessionId);
         clearActiveSession();
         setPayState('CARD_FAILED'); setError(cardErr.message || 'Card payment was not completed.');
@@ -276,7 +309,7 @@ export default function App() {
       setPayState('CANCELLED'); setPhase(PHASE.DONE);
     }
     setLoading(false);
-  }, [applyBackendSession, cardAmount, merchantName, merchantId, openCheckout, orderId, orderTotal, returnUrl, saveActiveSession, upiAmount]);
+  }, [applyBackendSession, cardAmount, clearActiveSession, merchantName, merchantId, openCheckout, orderId, orderTotal, returnUrl, saveActiveSession, upiAmount, waitForBackendUpiOrder]);
 
   const handleContinueUpi = useCallback(async () => {
     if (!sessionId || !recoveredUpiOrderId || !recoveredKeyId || loading) return;

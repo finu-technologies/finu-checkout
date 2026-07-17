@@ -187,6 +187,82 @@ function receiptFor(orderRef, leg) {
   return `${safeRef || 'ORDER'}${suffix}`;
 }
 
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForStoredUpiOrder(sessionId) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await delay(500);
+    const session = SessionStore.get(sessionId);
+    if (session?.upiOrderId) return session;
+    if (!session?.upiOrderCreatingAt) return null;
+  }
+  return SessionStore.get(sessionId);
+}
+
+async function ensureUpiOrderForAuthorizedCard(sessionId, reason = 'card authorized') {
+  const session = SessionStore.get(sessionId);
+  if (!session) throw new Error(`Session ${sessionId} not found`);
+
+  if (session.upiOrderId) {
+    console.log(`[upi/order] Existing UPI order reused for ${sessionId}: ${session.upiOrderId}`);
+    return { session, upiOrderId: session.upiOrderId, reused: true };
+  }
+
+  if (!session.cardPaymentId || !['CARD_AUTHORIZED', 'UPI_PENDING'].includes(session.state)) {
+    throw new Error(`Cannot create UPI order in state: ${session.state}`);
+  }
+
+  if (session.upiOrderCreatingAt) {
+    const pending = await waitForStoredUpiOrder(sessionId);
+    if (pending?.upiOrderId) {
+      console.log(`[upi/order] UPI order created by concurrent flow for ${sessionId}: ${pending.upiOrderId}`);
+      return { session: pending, upiOrderId: pending.upiOrderId, reused: true };
+    }
+  }
+
+  const locked = SessionStore.update(sessionId, {
+    upiOrderCreatingAt: new Date().toISOString(),
+    logs: appendLog(session, `UPI_ORDER_CREATING via ${reason}.`),
+  });
+
+  console.log(`[upi/order] Creating UPI order for ${sessionId}; reason=${reason}`);
+  const rzp = getRazorpay();
+  let upiOrder;
+  try {
+    upiOrder = await rzp.orders.create({
+      amount: Math.round(session.upiAmount * 100),
+      currency: 'INR',
+      receipt: receiptFor(session.merchantOrderRef || session.sessionId, 'UPI'),
+      notes: { sessionId, leg: 'UPI' },
+    });
+  } catch (err) {
+    const fresh = SessionStore.get(sessionId) || locked || session;
+    SessionStore.update(sessionId, {
+      upiOrderCreatingAt: null,
+      upiOrderCreationError: razorpayErrMsg(err),
+      logs: appendLog(fresh, `UPI_ORDER_CREATE_FAILED via ${reason}: ${razorpayErrMsg(err)}`),
+    });
+    throw err;
+  }
+
+  const fresh = SessionStore.get(sessionId) || session;
+  if (fresh.upiOrderId) {
+    console.log(`[upi/order] Concurrent UPI order already stored for ${sessionId}: ${fresh.upiOrderId}`);
+    return { session: fresh, upiOrderId: fresh.upiOrderId, reused: true };
+  }
+
+  const updated = SessionStore.update(sessionId, {
+    state: STATE.UPI_PENDING,
+    upiOrderId: upiOrder.id,
+    upiOrderCreatingAt: null,
+    upiOrderCreationError: null,
+    logs: appendLog(fresh, `UPI_STARTED order ${upiOrder.id} created via ${reason}. Awaiting UPI payment.`),
+  });
+  return { session: updated, upiOrderId: upiOrder.id, reused: false };
+}
+
 // ─── 1. CREATE PAYMENT SESSION ────────────────────────────────────────────────
 router.post('/session/create', async (req, res) => {
   try {
@@ -288,12 +364,13 @@ router.post('/payment/card/verify', async (req, res) => {
     }
     console.log('[card/verify] session state:', session.state);
 
-    if (session.state === STATE.UPI_PENDING && session.cardPaymentId === razorpay_payment_id && session.upiOrderId) {
-      console.log('[card/verify] duplicate verify received; returning existing UPI order');
+    if ([STATE.CARD_AUTHORIZED, STATE.UPI_PENDING].includes(session.state) && session.cardPaymentId === razorpay_payment_id) {
+      const upiOrderResult = await ensureUpiOrderForAuthorizedCard(sessionId, 'duplicate/frontend card verify');
+      console.log('[card/verify] duplicate verify received; returning UPI order');
       return res.json({
         success: true,
         message: 'Card payment already authorized. Proceed with UPI.',
-        upiOrderId: session.upiOrderId,
+        upiOrderId: upiOrderResult.upiOrderId,
         upiAmount: session.upiAmount,
         razorpayKeyId: process.env.RAZORPAY_KEY_ID,
       });
@@ -341,21 +418,12 @@ router.post('/payment/card/verify', async (req, res) => {
     });
     console.log('[card/verify] step 4 — session updated', afterCard?.state);
 
-    // ── Step 5: create UPI order ──
-    console.log('[card/verify] step 5 — creating UPI order for amount:', session.upiAmount);
-    const rzp = getRazorpay();
-
-    let upiOrder;
+    // ── Step 5: ensure UPI order ──
+    console.log('[card/verify] step 5 — ensuring UPI order for amount:', session.upiAmount);
+    let upiOrderResult;
     try {
-      upiOrder = await rzp.orders.create({
-        amount: Math.round(session.upiAmount * 100),
-        currency: 'INR',
-        receipt: receiptFor(session.merchantOrderRef || session.sessionId, 'UPI'),
-        notes: { sessionId, leg: 'UPI' },
-      });
+      upiOrderResult = await ensureUpiOrderForAuthorizedCard(sessionId, 'frontend card verify');
     } catch (orderErr) {
-      // UPI order creation failed — card was already charged.
-      // Session stays CARD_SUCCESS so ops team / timeout worker can refund.
       const msg = razorpayErrMsg(orderErr);
       console.error('[card/verify] step 5 — Razorpay UPI order creation FAILED:', msg);
       try {
@@ -371,26 +439,14 @@ router.post('/payment/card/verify', async (req, res) => {
       });
     }
 
-    console.log('[card/verify] step 5 — UPI order created:', upiOrder.id);
-
-    // ── Step 6: update session to UPI_PENDING ──
-    console.log('[card/verify] step 6 — updating session to UPI_PENDING');
-    SessionStore.update(sessionId, {
-      state: STATE.UPI_PENDING,
-      upiOrderId: upiOrder.id,
-      logs: [
-        ...(afterCard ? afterCard.logs : session.logs),
-        `UPI_STARTED order ${upiOrder.id} created. Awaiting UPI payment.`,
-      ],
-    });
-    console.log('[card/verify] step 6 — session updated to UPI_PENDING');
+    console.log('[card/verify] step 5 — UPI order ready:', upiOrderResult.upiOrderId);
 
     // ── Step 7: respond ──
     console.log('[card/verify] step 7 — sending success response');
     return res.json({
       success: true,
       message: 'Card payment authorized. Proceed with UPI.',
-      upiOrderId: upiOrder.id,
+      upiOrderId: upiOrderResult.upiOrderId,
       upiAmount: session.upiAmount,
       razorpayKeyId: process.env.RAZORPAY_KEY_ID,
     });
@@ -511,7 +567,7 @@ router.post('/session/:sessionId/cancel', async (req, res) => {
 router.get('/session/:sessionId', (req, res) => {
   const session = SessionStore.get(req.params.sessionId);
   if (!session) return res.status(404).json({ error: 'Session not found' });
-  return res.json(session);
+  return res.json({ ...session, razorpayKeyId: process.env.RAZORPAY_KEY_ID });
 });
 
 // ─── 6. LIST ALL SESSIONS ────────────────────────────────────────────────────
